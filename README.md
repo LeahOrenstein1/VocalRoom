@@ -50,3 +50,8 @@ Web Audio handles separate microphone takes and backing tracks. A PCM AudioWorkl
 ## Free static deployment (optional)
 
 Build with `npm run build`, then upload the contents of `dist/` to a free static host such as Cloudflare Pages (Direct Upload). No Workers, R2, database, bindings, API keys, or paid plan are needed for the app. HTTPS is required for microphone access. Review the host's current free plan terms before publishing. No hosting resources have been provisioned by this project.
+
+
+## Studio tools and isolated restoration experiment
+
+See [Studio tools](docs/studio-tools.md) for light mode, splitting, WAV/MP3 and dry vocal stem exports, and measured recording delay. See [Smule experiment](experiments/smule-renaissance/README.md) and its [measured report](experiments/smule-renaissance/REPORT.md) for actual local pretrained inference, verified licenses and ONNX/browser findings. Smule is not integrated into the production audio engine. Personal recordings and experiment outputs remain ignored by Git.

@@ -35,7 +35,18 @@ import {
   Volume2,
   Music2,
   RotateCcw,
+  Sun,
+  Moon,
+  Scissors,
 } from "lucide-react";
+import {
+  suggestedProjectName,
+  canSplitAt,
+  splitAt,
+  trimStartAt,
+} from "./editing";
+import { renderDryStem, encodeMp3 } from "./exports";
+import { calibrateRecording } from "./calibration";
 import {
   audioContext,
   makeTrack,
@@ -212,6 +223,30 @@ const time = (s: number) =>
     .toString()
     .padStart(2, "0")}`;
 export default function App() {
+  const [theme, setTheme] = useState(() => {
+    try {
+      return localStorage.getItem("vocalroom-theme") === "light"
+        ? "light"
+        : "dark";
+    } catch {
+      return "dark";
+    }
+  });
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    document
+      .querySelector('meta[name="theme-color"]')
+      ?.setAttribute("content", theme === "light" ? "#faf6fa" : "#111017");
+    try {
+      localStorage.setItem("vocalroom-theme", theme);
+    } catch {
+      /* Optional preference. */
+    }
+  }, [theme]);
+  const [exportFormat, setExportFormat] = useState("wav");
+  const [exportTarget, setExportTarget] = useState("mix");
+  const [exportProgress, setExportProgress] = useState<number | null>(null);
+  const nameEdited = useRef(false);
   const [page, setPage] = useState<"home" | "style" | "studio">("home");
   const [preset, setPreset] = useState<Preset>("Natural");
   const [tracks, setTracks] = useState<Track[]>([]);
@@ -227,7 +262,7 @@ export default function App() {
   const [name, setName] = useState("Untitled session");
   const [projectId, setProjectId] = useState(crypto.randomUUID());
   const [modal, setModal] = useState<
-    "projects" | "terms" | "reset" | "new" | null
+    "projects" | "terms" | "reset" | "new" | "export" | "calibrate" | null
   >(null);
   const [processed, setProcessed] = useState<ProcessedMix | null>(null);
   const [processing, setProcessing] = useState<ProcessingProgress | null>(null);
@@ -282,7 +317,7 @@ export default function App() {
     if (!modal) return;
     const previous = document.activeElement as HTMLElement;
     const key = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setModal(null);
+      if (e.key === "Escape" && !busy) setModal(null);
       if (e.key === "Tab") {
         const elements = Array.from(
           document.querySelectorAll<HTMLElement>(
@@ -305,7 +340,7 @@ export default function App() {
       document.removeEventListener("keydown", key);
       previous?.focus();
     };
-  }, [modal]);
+  }, [modal, busy]);
   const notify = (text: string) => {
     setMessage(text);
     setError("");
@@ -466,6 +501,7 @@ export default function App() {
     setPosition(0);
     setProjectId(crypto.randomUUID());
     setName("Untitled session");
+    nameEdited.current = false;
     setMix({
       enabled: false,
       preset: "Natural",
@@ -496,6 +532,12 @@ export default function App() {
       );
       stop();
       setTracks((ts) => [...ts, makeTrack(file.name, buffer, "backing")]);
+      if (
+        !nameEdited.current &&
+        name === "Untitled session" &&
+        !tracks.some((t) => t.kind === "backing")
+      )
+        setName(suggestedProjectName(file.name));
       notify(
         "Backing track imported. Put on headphones and record your first take.",
       );
@@ -610,18 +652,47 @@ export default function App() {
   }
   async function exportAudio() {
     setBusy(true);
+    setExportProgress(0);
     stop();
     try {
       const buffer =
-        processedSelected && processed
-          ? processed.buffer
-          : await renderMix(tracks, { ...mix, enabled: false });
-      const version = processedSelected ? "processed" : "original";
+        exportTarget === "vocal"
+          ? await renderDryStem(tracks, "vocal")
+          : processedSelected && processed
+            ? processed.buffer
+            : await renderMix(tracks, { ...mix, enabled: false });
+      const version =
+        exportTarget === "vocal"
+          ? "dry-vocal-stem"
+          : processedSelected
+            ? "processed"
+            : "original";
       download(
-        encodeWav(buffer),
-        `${name.replace(/[^a-z0-9_-]/gi, "-")}-${version}.wav`,
+        exportFormat === "mp3"
+          ? await encodeMp3(buffer, setExportProgress)
+          : encodeWav(buffer),
+        `${name.replace(/[^a-z0-9_-]/gi, "-")}-${version}.${exportFormat}`,
       );
-      notify(`Your ${version} stereo WAV mix is ready.`);
+      setModal(null);
+      notify(`Your ${version} ${exportFormat.toUpperCase()} is ready.`);
+    } catch (e) {
+      fail(e);
+    } finally {
+      setBusy(false);
+      setExportProgress(null);
+    }
+  }
+  async function calibrate() {
+    stop();
+    setBusy(true);
+    try {
+      const delay = await calibrateRecording(audioContext(), device);
+      setMix((m) => ({ ...m, recordingDelayMs: delay }));
+      setDelayEstimate(delay);
+      setModal(null);
+      notify(
+        `Measured recording delay: ${delay} ms. Applied to future takes. Existing takes are unchanged.`,
+      );
     } catch (e) {
       fail(e);
     } finally {
@@ -663,6 +734,7 @@ export default function App() {
       setMix(loaded.mix);
       setPreset(loaded.mix.preset);
       setName(loaded.name);
+      nameEdited.current = true;
       setProjectId(loaded.id);
       setPosition(0);
       setModal(null);
@@ -694,6 +766,18 @@ export default function App() {
             vocalroom<span className="brand-dot">®</span>
           </button>
           <div className="header-right">
+            <button
+              className="quiet theme-toggle"
+              aria-label={
+                theme === "dark"
+                  ? "Switch to light mode"
+                  : "Switch to dark mode"
+              }
+              title={theme === "dark" ? "Light mode" : "Dark mode"}
+              onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+            >
+              {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
+            </button>
             <span className="local-label">
               <span /> A little room. Unlimited possibility.
             </span>
@@ -726,7 +810,7 @@ export default function App() {
                         <div className="loading-scene">Setting the stage…</div>
                       }
                     >
-                      <MicScene />
+                      <MicScene light={theme === "light"} />
                     </Suspense>
                     <div className="object-caption">
                       <span className="tiny-cross">+</span>
@@ -843,7 +927,10 @@ export default function App() {
                       className="project-name"
                       aria-label="Project name"
                       value={name}
-                      onChange={(e) => setName(e.target.value)}
+                      onChange={(e) => {
+                        nameEdited.current = true;
+                        setName(e.target.value);
+                      }}
                     />
                   </div>
                   <div className="studio-actions">
@@ -870,10 +957,10 @@ export default function App() {
                     </button>
                     <Magnetic
                       className="outlined"
-                      onClick={exportAudio}
+                      onClick={() => setModal("export")}
                       disabled={busy || recording || !tracks.length}
                     >
-                      <Download size={16} /> Export WAV
+                      <Download size={16} /> Export audio
                     </Magnetic>
                   </div>
                 </div>
@@ -1080,12 +1167,10 @@ export default function App() {
                                   step=".1"
                                   value={t.trimStart}
                                   onChange={(e) =>
-                                    update(t.id, {
-                                      trimStart: Math.min(
-                                        t.trimEnd - 0.01,
-                                        Math.max(0, +e.target.value),
-                                      ),
-                                    })
+                                    update(
+                                      t.id,
+                                      trimStartAt(t, +e.target.value),
+                                    )
                                   }
                                 />
                               </label>
@@ -1110,6 +1195,37 @@ export default function App() {
                                   }
                                 />
                               </label>
+                            </div>
+                            <div className="track-cut">
+                              <button
+                                className="quiet"
+                                disabled={
+                                  busy || recording || !canSplitAt(t, position)
+                                }
+                                title="Split this track at the playhead. Original audio is preserved."
+                                onClick={() => {
+                                  const parts = splitAt(t, currentPosition());
+                                  if (!parts) return;
+                                  const next = tracks.flatMap((track) =>
+                                    track.id === t.id ? parts : [track],
+                                  );
+                                  setTracks(next);
+                                  setMix((m) => ({ ...m, enabled: false }));
+                                  if (playingRef.current)
+                                    void play(
+                                      currentPosition(),
+                                      false,
+                                      false,
+                                      next,
+                                    );
+                                }}
+                              >
+                                <Scissors size={14} /> Split at playhead
+                              </button>
+                              <small>
+                                Trim each part above, or remove a part. Source
+                                audio stays intact.
+                              </small>
                             </div>
                             {t.kind === "vocal" && (
                               <details className="track-advanced">
@@ -1367,6 +1483,13 @@ export default function App() {
                         ))}
                       </select>
                     </label>
+                    <button
+                      className="quiet"
+                      disabled={busy || recording}
+                      onClick={() => setModal("calibrate")}
+                    >
+                      Measure recording delay
+                    </button>
                   </div>
                   <aside className="mix-panel">
                     <div className="eyebrow">
@@ -1601,7 +1724,12 @@ export default function App() {
           </div>
         )}
         {modal && (
-          <div className="modal-backdrop" onClick={() => setModal(null)}>
+          <div
+            className="modal-backdrop"
+            onClick={() => {
+              if (!busy) setModal(null);
+            }}
+          >
             <section
               role="dialog"
               aria-modal="true"
@@ -1612,7 +1740,11 @@ export default function App() {
                     ? modal === "new"
                       ? "New Project"
                       : "Reset project"
-                    : "Saved projects"
+                    : modal === "export"
+                      ? "Export audio"
+                      : modal === "calibrate"
+                        ? "Measure recording delay"
+                        : "Saved projects"
               }
               className="modal"
               onClick={(e) => e.stopPropagation()}
@@ -1620,11 +1752,102 @@ export default function App() {
               <button
                 autoFocus
                 className="modal-close quiet"
+                disabled={busy}
                 onClick={() => setModal(null)}
               >
                 <X /> Close
               </button>
-              {modal === "projects" ? (
+              {modal === "calibrate" ? (
+                <>
+                  <div className="eyebrow">GET IN SYNC</div>
+                  <h2>Find your timing.</h2>
+                  <p>
+                    Take off your headphones. Hold one earcup near your selected
+                    microphone. In a quiet room, play three short, soft tones to
+                    measure the round-trip delay.
+                  </p>
+                  <p>
+                    Keep the volume comfortable. Wired headphones give more
+                    consistent timing; remeasure after changing devices. This
+                    corrects a fixed delay for new takes, not tempo drift or
+                    timing in existing recordings.
+                  </p>
+                  <Magnetic
+                    className="primary"
+                    disabled={busy}
+                    onClick={calibrate}
+                  >
+                    {busy
+                      ? "Listening for timing tones…"
+                      : "Play tones & measure"}
+                  </Magnetic>
+                </>
+              ) : modal === "export" ? (
+                <>
+                  <div className="eyebrow">TAKE YOUR SOUND WITH YOU</div>
+                  <h2>Export audio.</h2>
+                  <div className="export-options">
+                    <label>
+                      Audio
+                      <select
+                        disabled={busy}
+                        value={exportTarget}
+                        onChange={(e) => setExportTarget(e.target.value)}
+                      >
+                        <option value="mix">
+                          Full mix ·{" "}
+                          {processedSelected ? "Processed" : "Original"}
+                        </option>
+                        <option value="vocal">
+                          Dry vocal stem · no backing or effects
+                        </option>
+                      </select>
+                    </label>
+                    <label>
+                      Format
+                      <select
+                        disabled={busy}
+                        value={exportFormat}
+                        onChange={(e) => setExportFormat(e.target.value)}
+                      >
+                        <option value="wav">WAV · lossless</option>
+                        <option value="mp3">MP3 · 192 kbps</option>
+                      </select>
+                    </label>
+                  </div>
+                  <p>
+                    {exportTarget === "vocal"
+                      ? "All audible vocal parts, aligned to the project timeline. Trims, volume, pan, Mute and Solo apply. Choose WAV for further editing."
+                      : "Exports the version currently selected in the studio. Process your session first to export its processed mix."}
+                  </p>
+                  {exportProgress !== null && (
+                    <p role="status">
+                      {exportProgress === 0
+                        ? "Preparing audio…"
+                        : `Encoding MP3 · ${Math.round(exportProgress * 100)}%`}
+                    </p>
+                  )}
+                  <Magnetic
+                    className="primary"
+                    disabled={busy || recording}
+                    onClick={exportAudio}
+                  >
+                    <Download size={16} /> Download {exportFormat.toUpperCase()}
+                  </Magnetic>
+                  <p>
+                    <small>
+                      Encoding happens on your device.{" "}
+                      <a
+                        href="/licenses/lamejs-NOTICE.txt"
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        MP3 license &amp; source
+                      </a>
+                    </small>
+                  </p>
+                </>
+              ) : modal === "projects" ? (
                 <>
                   <div className="eyebrow">RIGHT WHERE YOU LEFT OFF</div>
                   <div className="project-library-heading">

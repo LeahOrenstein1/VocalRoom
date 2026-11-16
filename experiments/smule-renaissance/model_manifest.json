@@ -1,0 +1,11 @@
+{
+  "source_url": "https://github.com/smulelabs/smule-renaissance.git",
+  "source_revision": "b80e3a69c347f1290e62dddcb8e069654825aa7b",
+  "model_repository": "smulelabs/Smule-Renaissance-Small",
+  "model_revision": "12024e3250ace99e566662a2963e6158d104e69c",
+  "checkpoint_filename": "smule-renaissance-small.pt",
+  "checkpoint_sha256": "dd73b487ed058fdea66a25915f9f5a50b3d2dd97c03480f268a1d50a00fe2b06",
+  "checkpoint_bytes": 42064415,
+  "published_license": "mit",
+  "verified_on": "2026-11-16"
+}
