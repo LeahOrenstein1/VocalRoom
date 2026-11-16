@@ -23,10 +23,10 @@ function Fallback() {
     </div>
   );
 }
-function Microphone({ reduced }: { reduced: boolean }) {
+function Microphone({ reduced, light }: { reduced: boolean; light: boolean }) {
   const group = useRef<Group>(null);
   const ring = useRef<Group>(null);
-  const light = useRef<PointLight>(null);
+  const glowLight = useRef<PointLight>(null);
   const velocity = useRef({ x: 0, y: 0 });
   useFrame(({ clock, pointer }, delta) => {
     if (!group.current || !ring.current) return;
@@ -43,16 +43,20 @@ function Microphone({ reduced }: { reduced: boolean }) {
       ? 0
       : Math.sin(clock.elapsedTime * 0.7) * 0.055;
     ring.current.rotation.z = reduced ? -0.4 : -0.4 + pointer.x * 0.06;
-    if (light.current)
-      light.current.intensity = MathUtils.damp(
-        light.current.intensity,
+    if (glowLight.current)
+      glowLight.current.intensity = MathUtils.damp(
+        glowLight.current.intensity,
         15 + Math.abs(pointer.x) * 8,
         4,
         dt,
       );
   });
   const metal = (
-    <meshStandardMaterial color="#b2a6ae" metalness={0.95} roughness={0.25} />
+    <meshStandardMaterial
+      color={light ? "#e8dfe5" : "#b2a6ae"}
+      metalness={0.95}
+      roughness={0.25}
+    />
   );
   return (
     <>
@@ -78,7 +82,7 @@ function Microphone({ reduced }: { reduced: boolean }) {
       </Environment>
       <ambientLight intensity={0.4} />
       <pointLight
-        ref={light}
+        ref={glowLight}
         position={[-2, 1, 3]}
         color="#e9a6c2"
         intensity={18}
@@ -103,7 +107,7 @@ function Microphone({ reduced }: { reduced: boolean }) {
         <mesh position={[0, 0.75, 0]}>
           <capsuleGeometry args={[0.45, 0.75, 12, 40]} />
           <meshStandardMaterial
-            color="#28252c"
+            color={light ? "#ded4df" : "#28252c"}
             metalness={0.9}
             roughness={0.45}
           />
@@ -162,7 +166,7 @@ function Microphone({ reduced }: { reduced: boolean }) {
         <mesh position={[0, -0.48, 0]}>
           <cylinderGeometry args={[0.455, 0.395, 1.08, 64]} />
           <meshStandardMaterial
-            color="#27232c"
+            color={light ? "#f1e8ef" : "#27232c"}
             metalness={0.86}
             roughness={0.29}
           />
@@ -174,7 +178,7 @@ function Microphone({ reduced }: { reduced: boolean }) {
         <mesh position={[0, -1.19, 0]}>
           <cylinderGeometry args={[0.12, 0.12, 0.27, 32]} />
           <meshStandardMaterial
-            color="#1d1a22"
+            color={light ? "#d0c1cf" : "#1d1a22"}
             metalness={0.9}
             roughness={0.22}
           />
@@ -201,7 +205,7 @@ function Microphone({ reduced }: { reduced: boolean }) {
                 rotation={[0, 0, side * -0.09]}
               >
                 <meshStandardMaterial
-                  color="#5c515f"
+                  color={light ? "#e0d0de" : "#5c515f"}
                   metalness={0.9}
                   roughness={0.25}
                 />
@@ -231,7 +235,7 @@ function Microphone({ reduced }: { reduced: boolean }) {
     </>
   );
 }
-export default function MicScene() {
+export default function MicScene({ light = false }: { light?: boolean }) {
   const reduced = !!useReducedMotion();
   const [supported] = useState(() => {
     try {
@@ -256,7 +260,7 @@ export default function MicScene() {
             frameloop={reduced ? "demand" : "always"}
           >
             <Suspense fallback={null}>
-              <Microphone reduced={reduced} />
+              <Microphone reduced={reduced} light={light} />
             </Suspense>
           </Canvas>
         </Boundary>

@@ -1,0 +1,31 @@
+Can I use LAME in my commercial program?  
+
+Yes, you can, under the restrictions of the LGPL.  The easiest
+way to do this is to:
+
+1. Link to LAME as separate jar (lame.min.js or lame.all.js)
+
+2. Fully acknowledge that you are using LAME, and give a link
+   to our web site, lame.sourceforge.net
+
+3. If you make modifications to LAME, you *must* release these
+   these modifications back to the LAME project, under the LGPL.
+
+
+VocalRoom MP3 encoder notice
+Uses unmodified @breezystack/lamejs 1.2.7 (LGPL-3.0), derived from LAME.
+LAME: https://lame.sourceforge.net/
+Source: https://github.com/shijinyu/lamejs
+Exact published binary package:
+https://registry.npmjs.org/@breezystack/lamejs/-/lamejs-1.2.7.tgz
+Upstream: https://github.com/zhuker/lamejs
+Full licenses are provided alongside this notice: LGPL-3.0.txt and GPL-3.0.txt.
+The encoder is an independent, unmodified JavaScript module at /vendor/lamejs.js.
+You may replace that module with a compatible modified version and run this app
+with it. VocalRoom imports it dynamically from its worker rather than bundling
+it into app code. Reverse engineering for debugging modifications to this LGPL
+component is permitted. No additional restrictions are imposed on this library.
+
+Corresponding source and build scripts at the npm-published Git revision:
+https://github.com/shijinyu/lamejs/tree/1fb0ef5fa177413107e2e107d054a9b994e3f79c
+Source archive: https://github.com/shijinyu/lamejs/archive/1fb0ef5fa177413107e2e107d054a9b994e3f79c.tar.gz
