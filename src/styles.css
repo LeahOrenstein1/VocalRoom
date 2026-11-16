@@ -1648,3 +1648,62 @@ fieldset:disabled {
   max-width: 520px;
   flex-wrap: wrap;
 }
+.project-library-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.project-library-heading h2 {
+  margin-right: auto;
+}
+.project-library-heading .magnetic {
+  font-size: 11px;
+  padding: 12px 14px;
+  gap: 8px;
+}
+.level-match {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 10px;
+  color: #c2a8c9;
+  margin: 0 0 14px;
+  flex-wrap: wrap;
+}
+.level-match input {
+  accent-color: #e9a6c2;
+}
+.level-match small {
+  font-size: 8px;
+  color: #8f7c9b;
+}
+.studio-advanced {
+  border-top: 1px solid #ffffff12;
+  border-bottom: 1px solid #ffffff12;
+  padding: 13px 0;
+  margin: 18px 0;
+  color: #b99cc4;
+  font-size: 10px;
+}
+.studio-advanced summary {
+  cursor: pointer;
+}
+.studio-advanced > small {
+  font-size: 9px;
+  line-height: 1.8;
+  color: #8f7c9b;
+  display: block;
+  margin: 12px 0;
+}
+@media (max-width: 500px) {
+  .project-library-heading {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 0;
+    margin-bottom: 20px;
+  }
+  .project-library-heading h2 {
+    margin-bottom: 16px;
+  }
+}

@@ -221,6 +221,8 @@ export default function App() {
     intensity: 0.6,
     noiseReduction: 0.65,
     autoMix: true,
+    engine: "studio",
+    levelMatch: true,
   });
   const [name, setName] = useState("Untitled session");
   const [projectId, setProjectId] = useState(crypto.randomUUID());
@@ -257,6 +259,22 @@ export default function App() {
   const processedReady =
     processed !== null && processed.signature === signature;
   const processedSelected = mix.enabled && processedReady;
+  const stageOrder = [
+    "analysis",
+    "noise",
+    ...(mix.engine === "studio" ? ["vocal"] : []),
+    "balance",
+    "render",
+    ...(mix.engine === "studio" ? ["master"] : []),
+  ];
+  const stageLabels: Record<string, string> = {
+    analysis: "Analyze",
+    noise: "Reduce noise",
+    vocal: "Shape vocals",
+    balance: "Balance tracks",
+    render: "Render mix",
+    master: "Finish & level-match",
+  };
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: "instant" });
   }, [page]);
@@ -337,6 +355,7 @@ export default function App() {
     useProcessed = processedSelected,
     sessionTracks = tracks,
     scheduledStart?: number,
+    levelMatch = mix.levelMatch ?? true,
   ) {
     stop();
     const request = playRequest.current;
@@ -355,6 +374,9 @@ export default function App() {
             ctx.destination,
             started.current,
             from,
+            !monitoring && levelMatch && processedReady
+              ? (processed.report?.processedComparisonGain ?? 1)
+              : 1,
           )
         : graph(
             ctx,
@@ -363,6 +385,9 @@ export default function App() {
             ctx.destination,
             started.current,
             from,
+            !monitoring && levelMatch && processedReady
+              ? (processed.report?.originalComparisonGain ?? 1)
+              : 1,
           );
     setPlaying(true);
     playingRef.current = true;
@@ -447,11 +472,18 @@ export default function App() {
       intensity: 0.6,
       noiseReduction: 0.65,
       autoMix: true,
+      engine: "studio",
+      levelMatch: true,
     });
     setRights(false);
     setModal(null);
+    setPage("studio");
     setDelayEstimate(null);
     notify("A fresh session. Your saved projects are still in My projects.");
+  }
+  function newProject() {
+    if (tracks.length) setModal("new");
+    else resetProject();
   }
   async function importFile(file?: File) {
     if (!file) return;
@@ -818,9 +850,7 @@ export default function App() {
                     <button
                       className="quiet"
                       disabled={busy || recording}
-                      onClick={() =>
-                        tracks.length ? setModal("new") : resetProject()
-                      }
+                      onClick={newProject}
                     >
                       <Plus size={15} /> New Project
                     </button>
@@ -1214,6 +1244,32 @@ export default function App() {
                             position.
                           </small>
                         </div>
+                        {processedReady && processed?.report && (
+                          <label className="level-match">
+                            <input
+                              type="checkbox"
+                              checked={mix.levelMatch ?? true}
+                              disabled={busy || recording}
+                              onChange={(e) => {
+                                const enabled = e.target.checked;
+                                setMix((m) => ({ ...m, levelMatch: enabled }));
+                                if (playingRef.current)
+                                  void play(
+                                    currentPosition(),
+                                    false,
+                                    processedSelected,
+                                    tracks,
+                                    undefined,
+                                    enabled,
+                                  );
+                              }}
+                            />{" "}
+                            Match listening levels{" "}
+                            <small>
+                              Comparison only; exports stay unchanged.
+                            </small>
+                          </label>
+                        )}
                         <div className="comparison-options">
                           <button
                             disabled={busy || recording}
@@ -1349,31 +1405,18 @@ export default function App() {
                         />
                         <p>{processing.detail}</p>
                         <ol>
-                          {(
-                            ["analysis", "noise", "balance", "render"] as const
-                          ).map((stage, i) => (
+                          {stageOrder.map((stage, i) => (
                             <li
                               key={stage}
                               className={
-                                [
-                                  "analysis",
-                                  "noise",
-                                  "balance",
-                                  "render",
-                                  "ready",
-                                ].indexOf(processing.stage) >= i
+                                [...stageOrder, "ready"].indexOf(
+                                  processing.stage,
+                                ) >= i
                                   ? "reached"
                                   : ""
                               }
                             >
-                              {
-                                [
-                                  "Analyze",
-                                  "Reduce noise",
-                                  "Balance tracks",
-                                  "Render mix",
-                                ][i]
-                              }
+                              {stageLabels[stage]}
                             </li>
                           ))}
                         </ol>
@@ -1437,6 +1480,43 @@ export default function App() {
                       Reduces steady noise and rumble. Overlapping voices may
                       remain; lower the amount if singing sounds affected.
                     </small>
+                    <details className="studio-advanced">
+                      <summary>Advanced controls</summary>
+                      <label className="effect-label">
+                        Processing engine
+                        <select
+                          aria-label="Processing engine"
+                          value={mix.engine ?? "legacy"}
+                          disabled={busy || recording}
+                          onChange={(e) =>
+                            changeMix({
+                              engine: e.target.value as "studio" | "legacy",
+                            })
+                          }
+                        >
+                          <option value="studio">Studio Polish</option>
+                          <option value="legacy">Classic DSP (fallback)</option>
+                        </select>
+                      </label>
+                      <label className="auto-mix-toggle">
+                        <input
+                          type="checkbox"
+                          checked={mix.stereoDelay ?? false}
+                          disabled={
+                            busy || recording || mix.engine !== "studio"
+                          }
+                          onChange={(e) =>
+                            changeMix({ stereoDelay: e.target.checked })
+                          }
+                        />{" "}
+                        Short stereo delay
+                      </label>
+                      <small>
+                        Studio Polish adapts to your voice and backing track.
+                        Classic DSP keeps the previous processing chain
+                        available.
+                      </small>
+                    </details>
                     <label className="auto-mix-toggle">
                       <input
                         type="checkbox"
@@ -1547,7 +1627,16 @@ export default function App() {
               {modal === "projects" ? (
                 <>
                   <div className="eyebrow">RIGHT WHERE YOU LEFT OFF</div>
-                  <h2>My projects.</h2>
+                  <div className="project-library-heading">
+                    <h2>My projects.</h2>
+                    <Magnetic
+                      className="outlined"
+                      disabled={busy || recording}
+                      onClick={newProject}
+                    >
+                      <Plus size={16} /> New Project
+                    </Magnetic>
+                  </div>
                   {saved.length ? (
                     saved.map((p) => (
                       <button

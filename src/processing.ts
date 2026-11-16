@@ -1,16 +1,15 @@
-import {
-  audioContext,
-  analyze,
-  renderMix,
-  type Track,
-  type Mix,
-} from "./audio";
+import { clean } from "./noise-client";
+import { processStudioSession } from "./studio-engine";
+import type { ProductionReport } from "./studio-dsp";
+import { analyze, renderMix, type Track, type Mix } from "./audio";
 export interface ProcessedMix {
   buffer: AudioBuffer;
   signature: string;
+  report?: ProductionReport;
 }
 export interface ProcessingProgress {
-  stage: "analysis" | "noise" | "balance" | "render" | "ready";
+  stage:
+    "analysis" | "noise" | "vocal" | "balance" | "render" | "master" | "ready";
   progress: number;
   detail: string;
 }
@@ -21,6 +20,9 @@ export function mixSignature(tracks: Track[], mix: Mix) {
       length: buffer.length,
       sampleRate: buffer.sampleRate,
     })),
+    ...(mix.engine === "studio"
+      ? { engine: "studio-v1", stereoDelay: mix.stereoDelay ?? false }
+      : {}),
     preset: mix.preset,
     intensity: mix.intensity,
     noiseReduction: mix.noiseReduction ?? 0.65,
@@ -28,70 +30,7 @@ export function mixSignature(tracks: Track[], mix: Mix) {
   });
 }
 const paint = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
-function clean(
-  buffer: AudioBuffer,
-  strength: number,
-  progress: (p: number) => void,
-  signal?: AbortSignal,
-  noiseProfileSeconds = 0,
-): Promise<AudioBuffer> {
-  return new Promise((resolve, reject) => {
-    if (signal?.aborted) {
-      reject(new DOMException("Processing cancelled", "AbortError"));
-      return;
-    }
-    const worker = new Worker(new URL("./noise.worker.ts", import.meta.url), {
-      type: "module",
-    });
-    const finish = () => {
-      worker.terminate();
-      signal?.removeEventListener("abort", abort);
-    };
-    const abort = () => {
-      finish();
-      reject(new DOMException("Processing cancelled", "AbortError"));
-    };
-    signal?.addEventListener("abort", abort, { once: true });
-    worker.onerror = (e) => {
-      finish();
-      reject(
-        new Error(
-          e.message || "Noise reduction failed. Your originals are safe.",
-        ),
-      );
-    };
-    worker.onmessage = (e) => {
-      if (e.data.error) {
-        finish();
-        reject(new Error(e.data.error));
-      } else if (e.data.channels) {
-        const output = audioContext().createBuffer(
-          buffer.numberOfChannels,
-          buffer.length,
-          buffer.sampleRate,
-        );
-        e.data.channels.forEach((data: Float32Array, c: number) =>
-          output.copyToChannel(data, c),
-        );
-        finish();
-        resolve(output);
-      } else progress(e.data.progress);
-    };
-    const channels = Array.from({ length: buffer.numberOfChannels }, (_, c) =>
-      buffer.getChannelData(c).slice(),
-    );
-    worker.postMessage(
-      {
-        channels,
-        sampleRate: buffer.sampleRate,
-        strength,
-        noiseProfileSeconds,
-      },
-      channels.map((c) => c.buffer),
-    );
-  });
-}
-export async function processSession(
+async function processLegacySession(
   tracks: Track[],
   mix: Mix,
   onProgress: (p: ProcessingProgress) => void,
@@ -173,4 +112,21 @@ export async function processSession(
   const buffer = await renderMix(balanced, { ...mix, enabled: true });
   await report("ready", 1, "Your processed mix is ready to compare");
   return { buffer, signature: mixSignature(tracks, mix) };
+}
+
+export async function processSession(
+  tracks: Track[],
+  mix: Mix,
+  onProgress: (p: ProcessingProgress) => void,
+  signal?: AbortSignal,
+): Promise<ProcessedMix> {
+  return mix.engine === "studio"
+    ? processStudioSession(
+        tracks,
+        mix,
+        onProgress,
+        signal,
+        mixSignature(tracks, mix),
+      )
+    : processLegacySession(tracks, mix, onProgress, signal);
 }

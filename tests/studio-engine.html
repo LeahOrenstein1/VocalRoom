@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>VocalRoom Studio Polish checks</title>
+    <style>
+      body {
+        background: #111017;
+        color: #f7f3f8;
+        font: 15px system-ui;
+        line-height: 1.8;
+        padding: 35px;
+      }
+      button {
+        padding: 13px;
+        background: #e9a6c2;
+        border: 0;
+        border-radius: 5px;
+      }
+      pre {
+        white-space: pre-wrap;
+        color: #b9a2d5;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Studio Polish integration checks</h1>
+    <p>
+      Generated signals only; no microphone, uploaded recordings, or cloud
+      processing.
+    </p>
+    <button id="run">Run Studio Polish checks</button>
+    <pre id="results">Ready.</pre>
+    <script type="module" src="./studio-engine-checks.ts"></script>
+  </body>
+</html>

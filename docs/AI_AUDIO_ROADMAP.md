@@ -2,9 +2,11 @@
 
 ## What is running now
 
-VocalRoom v0.2.0 uses **no neural model**. There are no OpenAI, paid AI, cloud audio, or inference API calls. It runs local DSP: STFT noise reduction (automatic noise spectrum or a user-supplied noise-only intro), rumble reduction, vocal high-pass/EQ/compression/gain/reverb, group balance, bus compression, and output peak attenuation. Audio assets stay in browser memory/IndexedDB. GitHub contains source code, not the user's recordings.
+VocalRoom uses **no neural model**. There are no OpenAI, paid AI, cloud audio, or inference API calls. It runs local DSP: STFT noise reduction (automatic noise spectrum or a user-supplied noise-only intro), rumble reduction, vocal high-pass/EQ/compression/gain/reverb, group balance, bus compression, and output peak attenuation. Audio assets stay in browser memory/IndexedDB. GitHub contains source code, not the user's recordings.
 
 This does not establish what the user's separate ChatGPT or GitHub account may cost; VocalRoom itself provisions no paid service. No GitHub Actions, Codespaces, external inference, or hosting resources are configured.
+
+The Phase 1 Studio Polish upgrade is documented in [PHASE1_AUDIO_ENGINE.md](PHASE1_AUDIO_ENGINE.md). Model evaluation and pitch correction remain future work, after real singing evaluation of Phase 1.
 
 ## Synchronization changes
 
