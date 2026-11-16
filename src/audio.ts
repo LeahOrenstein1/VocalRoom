@@ -12,6 +12,9 @@ export interface Track {
   trimStart: number;
   trimEnd: number;
   noiseProfileSeconds?: number;
+  /** Ephemeral render settings. Source tracks are never assigned these. */
+  production?: { reverb: number; delay: number };
+  masking?: { curve: Float32Array; hopSeconds: number; frequency: number };
   capture?: {
     clock: "audio-context";
     sampleRate: number;
@@ -26,6 +29,9 @@ export interface Mix {
   noiseReduction?: number;
   autoMix?: boolean;
   recordingDelayMs?: number;
+  engine?: "studio" | "legacy";
+  stereoDelay?: boolean;
+  levelMatch?: boolean;
 }
 let context: AudioContext;
 export function audioContext() {
@@ -86,6 +92,7 @@ export function graph(
   destination: AudioNode,
   startAt = 0,
   seek = 0,
+  comparisonGain = 1,
 ) {
   const sources: AudioBufferSourceNode[] = [];
   const master = ctx.createDynamicsCompressor();
@@ -111,8 +118,8 @@ export function graph(
   output.connect(destination);
   if (startAt > 0) {
     output.gain.setValueAtTime(0, startAt);
-    output.gain.linearRampToValueAtTime(1, startAt + 0.008);
-  }
+    output.gain.linearRampToValueAtTime(comparisonGain, startAt + 0.008);
+  } else output.gain.value = comparisonGain;
   const solo = tracks.some((t) => t.solo);
   tracks
     .filter((t) => !t.mute && (!solo || t.solo))
@@ -125,7 +132,49 @@ export function graph(
       pan.pan.value = t.pan;
       source.connect(gain);
       let end: AudioNode = gain;
-      if (t.kind === "vocal" && mix.enabled) {
+      if (t.kind === "backing" && mix.enabled && t.masking) {
+        const eq = ctx.createBiquadFilter();
+        eq.type = "peaking";
+        eq.frequency.value = t.masking.frequency;
+        eq.Q.value = 0.8;
+        const curve = t.masking.curve.slice(
+          Math.max(0, Math.floor(seek / t.masking.hopSeconds)),
+        );
+        if (curve.length > 1)
+          eq.gain.setValueCurveAtTime(
+            curve,
+            startAt,
+            (curve.length - 1) * t.masking.hopSeconds,
+          );
+        end.connect(eq);
+        end = eq;
+      }
+      if (t.kind === "vocal" && mix.enabled && t.production) {
+        const reverb = ctx.createConvolver();
+        reverb.buffer = impulse(ctx, mix.preset === "Pop Vocal" ? 1.4 : 1.0);
+        const wet = ctx.createGain();
+        wet.gain.value = t.production.reverb;
+        end.connect(reverb);
+        reverb.connect(wet);
+        wet.connect(pan);
+        if (t.production.delay > 0) {
+          for (const [seconds, stereo] of [
+            [0.085, -0.5],
+            [0.115, 0.5],
+          ]) {
+            const delay = ctx.createDelay(0.3),
+              level = ctx.createGain(),
+              spread = ctx.createStereoPanner();
+            delay.delayTime.value = seconds;
+            level.gain.value = t.production.delay;
+            spread.pan.value = stereo;
+            end.connect(delay);
+            delay.connect(level);
+            level.connect(spread);
+            spread.connect(headroom);
+          }
+        }
+      } else if (t.kind === "vocal" && mix.enabled) {
         const amount = mix.intensity;
         const hp = ctx.createBiquadFilter();
         hp.type = "highpass";
@@ -277,7 +326,11 @@ export async function saveProject(
   name: string,
   tracks: Track[],
   mix: Mix,
-  processed?: { buffer: AudioBuffer; signature: string } | null,
+  processed?: {
+    buffer: AudioBuffer;
+    signature: string;
+    report?: import("./studio-dsp").ProductionReport;
+  } | null,
 ) {
   // Store exact PCM: decoding a WAV on reopen can resample it to the device rate.
   const serialize = (buffer: AudioBuffer) => ({
@@ -294,6 +347,7 @@ export async function saveProject(
   const processedAudio = processed
     ? {
         signature: processed.signature,
+        report: processed.report,
         pcm: serialize(processed.buffer),
       }
     : null;
@@ -361,10 +415,16 @@ export async function loadProject(project: any) {
   const processed = project.processed
     ? {
         signature: project.processed.signature,
+        report: project.processed.report,
         buffer: await restore(project.processed),
       }
     : null;
-  return { ...project, tracks, processed };
+  return {
+    ...project,
+    mix: { ...project.mix, engine: project.mix.engine ?? "legacy" },
+    tracks,
+    processed,
+  };
 }
 
 /** Start a pre-rendered stereo mix at the same timeline position as the originals. */
@@ -374,6 +434,7 @@ export function playRendered(
   destination: AudioNode,
   when: number,
   offset: number,
+  comparisonGain = 1,
 ) {
   const source = ctx.createBufferSource(),
     output = ctx.createGain();
@@ -381,7 +442,7 @@ export function playRendered(
   source.connect(output);
   output.connect(destination);
   output.gain.setValueAtTime(0, when);
-  output.gain.linearRampToValueAtTime(1, when + 0.008);
+  output.gain.linearRampToValueAtTime(comparisonGain, when + 0.008);
   if (offset < buffer.duration) source.start(when, Math.max(0, offset));
   return (fade = 0) => {
     output.gain.cancelScheduledValues(ctx.currentTime);

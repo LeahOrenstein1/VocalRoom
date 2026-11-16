@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.3.0 — 2026-11-16 (Phase 1 upgrade branch)
+
+- Add New Project inside My Projects, reusing the existing save/discard flow.
+- Add Studio Polish worker analysis, adaptive vocal EQ/de-essing/compression/riding, conservative backing masking EQ, optional stereo delay, and linked offline mastering.
+- Add attenuation-only level-matched A/B listening without changing cached exports.
+- Preserve Classic DSP and old project caches; store new production reports separately from original PCM.
+- Add synthetic signal and full Worker/render tests, plus a local subjective quality-evaluation procedure. No neural models or pitch correction are introduced.
+
 ## 0.2.0 — 2026-11-16
 
 - Record raw PCM on the playback AudioContext clock using AudioWorklet, replacing the codec-dependent MediaRecorder path.
