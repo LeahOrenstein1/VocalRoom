@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>VocalRoom capture clock checks</title>
+    <style>
+      body {
+        background: #111017;
+        color: #f7f3f8;
+        font: 16px system-ui;
+        padding: 40px;
+        line-height: 1.8;
+      }
+      button {
+        background: #e9a6c2;
+        border: 0;
+        padding: 15px;
+        border-radius: 5px;
+      }
+      pre {
+        white-space: pre-wrap;
+        color: #b9a2d5;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>VocalRoom capture clock checks</h1>
+    <p>Uses a generated audio stream. No real microphone access.</p>
+    <button id="run">Run capture checks</button>
+    <pre id="results">Ready.</pre>
+    <script type="module" src="./capture-checks.ts"></script>
+  </body>
+</html>

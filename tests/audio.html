@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>VocalRoom audio checks</title>
+    <style>
+      body {
+        background: #111017;
+        color: #f7f3f8;
+        font: 16px system-ui;
+        padding: 40px;
+        line-height: 1.8;
+      }
+      button {
+        background: #e9a6c2;
+        border: 0;
+        padding: 15px 25px;
+        border-radius: 5px;
+        cursor: pointer;
+      }
+      pre {
+        white-space: pre-wrap;
+        color: #b9a2d5;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>VocalRoom audio checks</h1>
+    <p>
+      Generated tones only. Runs actual Web Audio rendering and browser storage.
+    </p>
+    <button id="run">Run audio checks</button>
+    <pre id="results" role="status">Ready.</pre>
+    <script type="module" src="./audio-checks.ts"></script>
+  </body>
+</html>

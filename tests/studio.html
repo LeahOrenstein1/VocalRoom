@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>VocalRoom — Synthetic microphone test</title>
+  </head>
+  <body style="margin: 0; background: #111017; color: white">
+    <div
+      style="
+        position: relative;
+        z-index: 99;
+        padding: 15px;
+        background: #34233d;
+        font: 12px system-ui;
+        text-align: center;
+      "
+    >
+      TEST ONLY — Generated audio replaces the microphone. No real microphone
+      access.
+      <button
+        id="enable"
+        style="margin-left: 15px; padding: 8px 15px; cursor: pointer"
+      >
+        Enable synthetic microphone and open studio</button
+      ><span id="fixture-status"></span>
+    </div>
+    <div id="root"></div>
+    <script type="module" src="./studio-fixture.ts"></script>
+  </body>
+</html>

@@ -1,0 +1,16 @@
+node_modules/
+dist/
+*.tsbuildinfo
+.openai/
+
+# Local media, recordings, secrets, and generated review images
+.env
+.env.*
+!.env.example
+recordings/
+exports/
+*.wav
+*.mp3
+*.webm
+*.ogg
+/vocalroom-*.jpg
