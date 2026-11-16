@@ -1,0 +1,10 @@
+.venv/
+upstream/
+models/
+inputs/
+outputs/
+results/
+__pycache__/
+*.onnx
+*.pt
+*.pth

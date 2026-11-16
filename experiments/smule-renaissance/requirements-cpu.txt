@@ -1,0 +1,9 @@
+# CPU-only PyTorch; install with --extra-index-url https://download.pytorch.org/whl/cpu
+# Matching torchaudio is pinned: upstream leaves it unpinned, which can pull incompatible versions.
+torch==2.7.1+cpu
+torchaudio==2.7.1+cpu
+numpy==2.2.6
+scipy==1.15.3
+soundfile==0.13.1
+psutil==7.0.0
+pyloudnorm==0.1.1
